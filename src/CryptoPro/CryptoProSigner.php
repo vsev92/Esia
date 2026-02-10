@@ -2,6 +2,7 @@
 
 class CryptoProSigner
 {
+    public function __construct(private string $cryptoproBin) {}
     public function sign(string $data, string $thumbprint): string
     {
         $tmpIn  = tempnam(sys_get_temp_dir(), 'esia_in_');
