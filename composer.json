@@ -1,0 +1,20 @@
+{
+    "name": "vsev92/esia",
+    "description": "ESIA integration via CryptoPro CLI",
+    "type": "library",
+    "require": {
+    "php": ">=8.1",
+    "guzzlehttp/guzzle": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Vsev92\\Esia\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "vsev92dev",
+            "email": "vsev92@mail.ru"
+        }
+    ]
+}
