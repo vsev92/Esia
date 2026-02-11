@@ -2,8 +2,8 @@
 
 return [
     'esia_base_url' => 'https://esia.gosuslugi.ru',
-    'client_id' => 'YOUR_CLIENT_ID',
-    'redirect_uri' => 'https://example.com/esia/callback',
+    'client_id' => 'YOUR_CLIENT_ID', //получают с госуслуг при регистрации юрлица
+    'redirect_uri' => 'https://octula.ru/esia/auth-callback',
 
     // CryptoPro
     'cert_thumbprint' => 'AB12CD34...',
