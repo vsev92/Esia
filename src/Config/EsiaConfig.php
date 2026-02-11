@@ -12,6 +12,9 @@ class EsiaConfig
         public string $redirectUri,
         public string $certThumbprint,
         public string $cryptoProBin,
+        public string $client_certificate_hash,
+        public string $scope,
+        public string $scopeOrg,
     ) {}
 
 
@@ -33,6 +36,9 @@ class EsiaConfig
             'redirect_uri',
             'cert_thumbprint',
             'cryptopro_bin',
+            'client_certificate_hash',
+            'scope',
+            'scopeOrg',
         ];
 
         foreach ($validConfigKeys as $key) {
@@ -45,6 +51,10 @@ class EsiaConfig
             redirectUri: $config['redirect_uri'],
             certThumbprint: $config['cert_thumbprint'],
             cryptoProBin: $config['cryptopro_bin'],
+            client_certificate_hash: $config['client_certificate_hash'],
+            scope: $config['scope'],
+            scopeOrg: $config['scopeOrg'],
+
         );
     }
 }

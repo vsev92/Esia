@@ -8,14 +8,16 @@ class EsiaAuthClient
 {
     public function __construct(
         private  EsiaConfig $config,
-        private  CryptoProSigner $signer = new CryptoProSigner('/opt/cprocsp/bin/amd64/cryptcp', $this->config->certThumbprint)
-    ) {}
+        private  CryptoProSigner $signer
+    ) {
+        $this->signer  = new CryptoProSigner('/opt/cprocsp/bin/amd64/cryptcp', $this->config->certThumbprint);
+    }
 
 
     /**
      * Формирует URL для перенаправления пользователя в ЕСИА после запроса на аутентификацию через ЕСИА
      */
-    public function getAuthorizationUrl(string $scope = 'openid', ?string $scopeOrg = null): string
+    public function getAuthorizationUrl(): string
     {
         $timestamp = gmdate('Y.m.d H:i:s O');
         $state = bin2hex(random_bytes(16)); //using for CSRF protection
@@ -23,8 +25,8 @@ class EsiaAuthClient
 
         $clientSecret = implode('', [
             $this->config->clientId,
-            $scope,
-            $scopeOrg ?? '',
+            $this->config->scope,
+            $this->config->scopeOrg,
             $timestamp,
             $state,
             $redirectUri
@@ -34,8 +36,8 @@ class EsiaAuthClient
 
         $query = [
             'client_id' => $this->config->clientId,
-            'scope' => $scope,
-            'scope_org' => $scopeOrg,
+            'scope' => $this->config->scope,
+            'scope_org' => $this->config->scopeOrg,
             'response_type' => 'code',
             'state' => $state,
             'timestamp' => $timestamp,
@@ -57,54 +59,43 @@ class EsiaAuthClient
     /**
      * Получает access EsiaToken по коду авторизации
      */
-    public function fetchEsiaToken(string $code, string $scope, ?string $scopeOrg = null, ?string $codeVerifier = null): EsiaToken
+    public function fetchEsiaToken(string $code, ?string $codeVerifier = null): EsiaToken //Б.2.5
     {
-        $client = new Client([
+        $httpClient = new Client([
             'base_uri' => $this->config->esiaBaseUrl,
             'timeout'  => 10,
         ]);
 
-        // 1. Генерация timestamp и state для запроса
         $timestamp = gmdate('Y.m.d H:i:s O');
         $state = bin2hex(random_bytes(16));
-
-        // 2. Формируем строку для подписи (client_secret)
-        $dataToSign = implode('', [
+        $clientSecret = implode('', [
             $this->config->clientId,
-            $scope,
-            $scopeOrg ?? '',
+            $this->config->scope,
+            $this->config->scopeOrg,
             $timestamp,
             $state,
             $this->config->redirectUri,
             $code,
         ]);
 
-        // 3. Подписываем ГОСТ Р 34.10-2012
-        $signature = $this->signer->sign($dataToSign, $this->config->certThumbprint);
+        $clientSecretEncoded = $this->signer->getBase64UrlSafeSignature($clientSecret);
 
-        // 4. Кодируем в base64 url safe
-        $clientSecretEncoded = rtrim(strtr(base64_encode($signature), '+/', '-_'), '=');
-
-        // 5. Формируем POST данные
         $postData = [
+            'client_secret' => $clientSecretEncoded,
             'client_id' => $this->config->clientId,
-            'scope' => $scope,
-            'scope_org' => $scopeOrg,
+            'scope' => $this->config->scope,
+            'scope_org' => $this->config->scopeOrg,
             'timestamp' => $timestamp,
             'state' => $state,
             'redirect_uri' => $this->config->redirectUri,
-            'client_secret' => $clientSecretEncoded,
+            'client_certificate_hash' => $this->config->client_certificate_hash,
             'code' => $code,
             'grant_type' => 'authorization_code',
             'token_type' => 'Bearer',
         ];
 
-        if ($codeVerifier) {
-            $postData['code_verifier'] = $codeVerifier; // для PKCE
-        }
-
         try {
-            $response = $client->post('aas/oauth2/v3/te', [
+            $response = $httpClient->post('aas/oauth2/v3/te', [
                 'form_params' => $postData,
                 'headers' => [
                     'Content-Type' => 'application/x-www-form-urlencoded',
@@ -120,6 +111,7 @@ class EsiaAuthClient
             return new EsiaToken(
                 $data['access_token'],
                 $data['expires_in'],
+                $data['token_type'],
                 $data['refresh_token'] ?? null
             );
         } catch (GuzzleException $e) {

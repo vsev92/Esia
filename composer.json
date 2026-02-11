@@ -5,7 +5,8 @@
     "license": "proprietary",
     "require": {
     "php": ">=8.1",
-    "guzzlehttp/guzzle": "^7.0"
+    "guzzlehttp/guzzle": "^7.0",
+        "nesbot/carbon": "^3.11"
     },
     "autoload": {
         "psr-4": {
