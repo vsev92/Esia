@@ -1,5 +1,7 @@
 <?php
 
+namespace Vsev92\Esia\CryptoPro;
+
 class CryptoProVerifier
 {
     public function verify(string $data, string $signature, string $thumbprint): bool

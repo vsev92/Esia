@@ -15,7 +15,7 @@ return [
     https://esia.gosuslugi.ru/public/calc_cert_hash_unix.zip
     Пример работы утилиты
     ./calc_cert_hash_unix.sh /path/to/client_cert.cer*/
-    'scope' => 'openid',
+    'scope' => 'openid fullname email mobile',  //Б.4
     'scopeOrg' => '',
 
 ];

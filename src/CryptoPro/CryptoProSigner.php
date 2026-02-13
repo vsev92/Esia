@@ -1,5 +1,7 @@
 <?php
 
+namespace Vsev92\Esia\CryptoPro;
+
 class CryptoProSigner
 {
     public function __construct(private string $cryptoproBinPath, private string $thumbprint) {}

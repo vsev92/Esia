@@ -1,8 +1,11 @@
 <?php
 
+namespace Vsev92\Esia\Esia;
+
 use Vsev92\Esia\Config\EsiaConfig;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Vsev92\Esia\CryptoPro\CryptoProSigner;
 
 class EsiaAuthClient
 {
@@ -56,11 +59,35 @@ class EsiaAuthClient
      */
 
 
+
+
     /**
-     * Получает access EsiaToken по коду авторизации
+     * Получает access EsiaAuthData по коду авторизации
      */
-    public function fetchEsiaToken(string $code, ?string $codeVerifier = null): EsiaToken //Б.2.5
+    public function fetchEsiaAuthData(string $code): EsiaAuthData  //Б.2.5
     {
+        return $this->requestEsiaAuthData(
+            grantType: 'authorization_code',
+            code: $code
+        );
+    }
+
+    /**
+     * Обновляет истекший EsiaAuthData
+     */
+    public function refreshEsiaAuthData(EsiaAuthData $expired): EsiaAuthData  //Б.2.6
+    {
+        return $this->requestEsiaAuthData(
+            grantType: 'refresh_token',
+            refresh: $expired->getRefreshToken()
+        );
+    }
+
+    private function requestEsiaAuthData(
+        string $grantType,
+        ?string $code = null,
+        ?string $refresh = null
+    ): EsiaAuthData {
         $httpClient = new Client([
             'base_uri' => $this->config->esiaBaseUrl,
             'timeout'  => 10,
@@ -68,17 +95,24 @@ class EsiaAuthClient
 
         $timestamp = gmdate('Y.m.d H:i:s O');
         $state = bin2hex(random_bytes(16));
-        $clientSecret = implode('', [
+
+
+        $clientSecret = [
             $this->config->clientId,
             $this->config->scope,
-            $this->config->scopeOrg,
+            $this->config->scopeOrg ?? '',
             $timestamp,
             $state,
             $this->config->redirectUri,
-            $code,
-        ]);
+        ];
 
-        $clientSecretEncoded = $this->signer->getBase64UrlSafeSignature($clientSecret);
+        if ($grantType === 'authorization_code') {
+            $clientSecret[] = $code;
+        }
+
+        $clientSecretString = implode('', $clientSecret);
+
+        $clientSecretEncoded = $this->signer->getBase64UrlSafeSignature($clientSecretString);
 
         $postData = [
             'client_secret' => $clientSecretEncoded,
@@ -89,10 +123,17 @@ class EsiaAuthClient
             'state' => $state,
             'redirect_uri' => $this->config->redirectUri,
             'client_certificate_hash' => $this->config->client_certificate_hash,
-            'code' => $code,
-            'grant_type' => 'authorization_code',
+            'grant_type' => $grantType,
             'token_type' => 'Bearer',
         ];
+
+        if ($grantType === 'authorization_code') {
+            $postData['code'] = $code;
+        }
+
+        if ($grantType === 'refresh_token') {
+            $postData['refresh_token'] = $refresh;
+        }
 
         try {
             $response = $httpClient->post('aas/oauth2/v3/te', [
@@ -105,14 +146,15 @@ class EsiaAuthClient
             $data = json_decode($response->getBody()->getContents(), true);
 
             if (isset($data['error'])) {
-                throw new \RuntimeException('ESIA EsiaToken error: ' . $data['error']);
+                throw new \RuntimeException('ESIA EsiaAuthData error: ' . $data['error']);
             }
 
-            return new EsiaToken(
+            return new EsiaAuthData(
                 $data['access_token'],
                 $data['expires_in'],
                 $data['token_type'],
-                $data['refresh_token'] ?? null
+                $data['refresh_token'] ?? null,
+                $data['id_token'] ?? null
             );
         } catch (GuzzleException $e) {
             throw new \RuntimeException('HTTP request failed: ' . $e->getMessage(), $e->getCode(), $e);
@@ -120,9 +162,9 @@ class EsiaAuthClient
     }
 
     /**
-     * Получает данные пользователя по access EsiaToken
+     * Получает данные пользователя по access EsiaAuthData
      */
-    public function getPerson(string $accessEsiaToken): array
+    public function getPerson(EsiaAuthData $token): array
     {
         $client = new Client([
             'base_uri' => $this->config->esiaBaseUrl,
@@ -132,7 +174,7 @@ class EsiaAuthClient
         try {
             $response = $client->get('/rs/prns', [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $accessEsiaToken,
+                    'Authorization' => 'Bearer ' . $token->getAccessToken(),
                     'Accept' => 'application/json',
                 ],
             ]);
