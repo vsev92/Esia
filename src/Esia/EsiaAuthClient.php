@@ -161,33 +161,11 @@ class EsiaAuthClient
         }
     }
 
-    /**
-     * Получает данные пользователя по access EsiaAuthData
-     */
-    public function getPerson(EsiaAuthData $token): array
+
+    public function logout()
     {
-        $client = new Client([
-            'base_uri' => $this->config->esiaBaseUrl,
-            'timeout'  => 10,
-        ]);
-
-        try {
-            $response = $client->get('/rs/prns', [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $token->getAccessToken(),
-                    'Accept' => 'application/json',
-                ],
-            ]);
-
-            $data = json_decode($response->getBody()->getContents(), true);
-
-            if (!is_array($data)) {
-                throw new \RuntimeException('Invalid response from ESIA');
-            }
-
-            return $data;
-        } catch (GuzzleException $e) {
-            throw new \RuntimeException('HTTP request failed: ' . $e->getMessage(), $e->getCode(), $e);
-        }
+        $logoutUrl = $this->config->esiaBaseUrl . "/logout?redirect_uri={$this->config->redirectUri}";
+        header("Location: $logoutUrl");
+        exit;
     }
 }
